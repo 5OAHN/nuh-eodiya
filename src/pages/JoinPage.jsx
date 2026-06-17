@@ -128,8 +128,10 @@ export default function JoinPage() {
 
         <div>
           <label className="label-mcm">닉네임 *</label>
-          <input className="input-mcm font-bold text-lg" placeholder="총알기차"
-            value={nickname} onChange={e => setNickname(e.target.value)} maxLength={8} />
+          <input className="input-mcm font-bold text-lg" placeholder="총알기차" enterKeyHint="done"
+            value={nickname} onChange={e => setNickname(e.target.value)} maxLength={8}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); handleJoin() } }}
+              />
         </div>
 
         <div className="card-mcm p-5 flex flex-col items-center gap-3">

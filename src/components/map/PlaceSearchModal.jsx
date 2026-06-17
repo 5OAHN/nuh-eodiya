@@ -72,7 +72,7 @@ export default function PlaceSearchModal({ onSelect, onClose }) {
             placeholder="장소명 또는 주소 검색..."
             value={query}
             onChange={e => setQuery(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleSearch()}
+            enterKeyHint="search" onKeyDown={e => e.key === 'Enter' && handleSearch()}
             autoFocus
           />
           <button

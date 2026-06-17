@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { createRoom as createRoomService } from '../lib/roomService'
@@ -25,10 +25,16 @@ export default function CreateRoomPage() {
   const [showSearch, setShowSearch] = useState(false)
   const [loading, setLoading]     = useState(false)
 
+  // 키보드 다음 포커싱용 ref
+  const timeRef     = useRef(null)
+  const penaltyRef  = useRef(null)
+  const nicknameRef = useRef(null)
+
   const addPenalty = () => {
     if (!newPenalty.trim()) return
     setPenalties(p => [...p, newPenalty.trim()])
     setNewP('')
+    penaltyRef.current?.focus()
   }
 
   const handleCreate = async () => {
@@ -64,7 +70,14 @@ export default function CreateRoomPage() {
   return (
     <div className="min-h-dvh bg-gray-50 flex flex-col">
       {showSearch && (
-        <PlaceSearchModal onSelect={place => setDest(place)} onClose={() => setShowSearch(false)} />
+        <PlaceSearchModal
+          onSelect={place => {
+            setDest(place)
+            // 장소 선택 후 시간 필드로 포커싱
+            setTimeout(() => timeRef.current?.focus(), 300)
+          }}
+          onClose={() => setShowSearch(false)}
+        />
       )}
 
       {/* 헤더 */}
@@ -89,11 +102,26 @@ export default function CreateRoomPage() {
       <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-6">
         {step === 1 ? (
           <div className="flex flex-col gap-5 animate-fade-in">
+
+            {/* 약속 이름 → 장소 검색 열기 */}
             <Field label="약속 이름">
-              <input className="input-mcm" placeholder="강남역 점심 모임 🍜"
-                value={title} onChange={e => setTitle(e.target.value)} />
+              <input
+                className="input-mcm"
+                placeholder="강남역 점심 모임 🍜"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                returnKeyType="next"
+                enterKeyHint="next"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    setShowSearch(true)
+                  }
+                }}
+              />
             </Field>
 
+            {/* 약속 장소 — 클릭으로 모달 */}
             <Field label="약속 장소 *">
               <button
                 onClick={() => setShowSearch(true)}
@@ -111,11 +139,25 @@ export default function CreateRoomPage() {
               )}
             </Field>
 
+            {/* 약속 시간 → 벌칙 입력으로 */}
             <Field label="약속 시간">
-              <input type="datetime-local" className="input-mcm"
-                value={time} onChange={e => setTime(e.target.value)} />
+              <input
+                ref={timeRef}
+                type="datetime-local"
+                className="input-mcm"
+                value={time}
+                onChange={e => setTime(e.target.value)}
+                enterKeyHint="next"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    penaltyRef.current?.focus()
+                  }
+                }}
+              />
             </Field>
 
+            {/* 벌칙 목록 */}
             <Field label="지각 벌칙 목록 🎰">
               <div className="flex flex-col gap-2 mb-3">
                 {penalties.map((p, i) => (
@@ -128,10 +170,22 @@ export default function CreateRoomPage() {
                   </div>
                 ))}
               </div>
+              {/* 벌칙 추가 입력 → Enter로 추가 후 재포커싱 */}
               <div className="flex gap-2">
-                <input className="input-mcm flex-1 text-sm" placeholder="새 벌칙 추가..."
-                  value={newPenalty} onChange={e => setNewP(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && addPenalty()} />
+                <input
+                  ref={penaltyRef}
+                  className="input-mcm flex-1 text-sm"
+                  placeholder="새 벌칙 추가 후 Enter..."
+                  value={newPenalty}
+                  onChange={e => setNewP(e.target.value)}
+                  enterKeyHint="done"
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault()
+                      addPenalty()
+                    }
+                  }}
+                />
                 <button onClick={addPenalty} className="btn-mcm-primary px-5 py-3 text-sm font-bold flex-shrink-0">추가</button>
               </div>
             </Field>
@@ -150,19 +204,39 @@ export default function CreateRoomPage() {
             <Field label="캐릭터 선택">
               <div className="grid grid-cols-6 gap-2">
                 {EMOJIS.map(e => (
-                  <button key={e} onClick={() => setEmoji(e)}
+                  <button
+                    key={e}
+                    onClick={() => {
+                      setEmoji(e)
+                      // 이모지 선택 후 닉네임 필드로 포커싱
+                      setTimeout(() => nicknameRef.current?.focus(), 100)
+                    }}
                     className={`text-3xl py-2.5 rounded-xl border transition-all duration-150 ${
                       emoji === e
                         ? 'bg-mcm-blue-light border-mcm-blue shadow-md scale-110'
                         : 'bg-white border-neutral-200 hover:bg-gray-50 shadow-sm'
-                    }`}>{e}</button>
+                    }`}
+                  >{e}</button>
                 ))}
               </div>
             </Field>
 
             <Field label="닉네임 *">
-              <input className="input-mcm font-bold text-lg" placeholder="불꽃감자"
-                value={nickname} onChange={e => setNickname(e.target.value)} maxLength={8} />
+              <input
+                ref={nicknameRef}
+                className="input-mcm font-bold text-lg"
+                placeholder="불꽃감자"
+                value={nickname}
+                onChange={e => setNickname(e.target.value)}
+                maxLength={8}
+                enterKeyHint="done"
+                onKeyDown={e => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleCreate()
+                  }
+                }}
+              />
               <p className="text-mcm-stone text-xs mt-1.5 text-right">{nickname.length} / 8</p>
             </Field>
 
@@ -177,8 +251,11 @@ export default function CreateRoomPage() {
 
             <div className="flex gap-3">
               <button onClick={() => setStep(1)} className="btn-mcm-ghost py-4 flex-1 font-bold text-base rounded-pill">← 이전</button>
-              <button onClick={handleCreate} disabled={loading}
-                className="btn-mcm-primary py-4 flex-[2] text-base font-bold disabled:opacity-60">
+              <button
+                onClick={handleCreate}
+                disabled={loading}
+                className="btn-mcm-primary py-4 flex-[2] text-base font-bold disabled:opacity-60"
+              >
                 {loading ? '생성 중...' : '🚀 방 생성!'}
               </button>
             </div>

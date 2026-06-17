@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { useRealtime } from '../hooks/useRealtime'
@@ -14,13 +14,27 @@ export default function DashboardPage() {
     isHost: s.isHost, phase: s.phase,
     startRoulette: s.startRoulette, loadDemoRoom: s.loadDemoRoom,
   }))
+
+  // 지도 ref — 포커싱 메서드 호출용
+  const mapRef = useRef(null)
   const [shareToast, setShareToast] = useState(false)
+  const [focusedMember, setFocusedMember] = useState(null)
 
   useRealtime(roomId)
   useEffect(() => { if (!room) loadDemoRoom() }, [])
   useEffect(() => {
     if (phase === 'roulette' || phase === 'done') navigate(`/roulette/${roomId}`)
   }, [phase])
+
+  // 멤버 클릭 → 지도 포커싱
+  const handleFocus = (member) => {
+    setFocusedMember(member)
+    if (member) {
+      mapRef.current?.focusMember(member)
+    } else {
+      mapRef.current?.resetView()
+    }
+  }
 
   const handleShare = async () => {
     const url = `${import.meta.env.VITE_APP_BASE_URL || window.location.origin}/join/${room?.id || roomId}`
@@ -83,9 +97,23 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ③ 지도 */}
+      {/* ③ 지도 — ref 연결 */}
       <div className="flex-1 relative min-h-0">
-        <KakaoMap members={members} destination={room.destination} />
+        <KakaoMap ref={mapRef} members={members} destination={room.destination} />
+
+        {/* 포커싱 중일 때: 전체보기 버튼 */}
+        {focusedMember && (
+          <button
+            onClick={() => handleFocus(null)}
+            className="absolute top-3 left-1/2 -translate-x-1/2 z-10
+                       bg-mcm-blue text-white text-xs font-bold
+                       px-3 py-1.5 rounded-pill shadow-md
+                       flex items-center gap-1.5 animate-bouncy whitespace-nowrap"
+          >
+            <span>🗺️</span>
+            <span>전체 보기</span>
+          </button>
+        )}
 
         {/* 공유 FAB */}
         <button
@@ -112,9 +140,9 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ④ 멤버 리스트 */}
+      {/* ④ 멤버 리스트 — onFocus 연결 */}
       <div className="flex-shrink-0 max-h-[40vh] overflow-y-auto no-scrollbar shadow-[0_-4px_20px_rgba(0,0,0,0.06)] bg-white">
-        <MemberStatusList members={members} />
+        <MemberStatusList members={members} onFocus={handleFocus} />
       </div>
 
       {/* ⑤ 하단 액션 바 */}
