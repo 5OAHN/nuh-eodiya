@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { useRealtime } from '../hooks/useRealtime'
+import { useRoomRestore } from '../hooks/useRoomRestore'
 import CountdownTimer from '../components/map/CountdownTimer'
 import KakaoMap from '../components/map/KakaoMap'
 import MemberStatusList from '../components/map/MemberStatusList'
@@ -9,31 +10,35 @@ import MemberStatusList from '../components/map/MemberStatusList'
 export default function DashboardPage() {
   const { roomId } = useParams()
   const navigate   = useNavigate()
-  const { room, members, myId, isHost, phase, startRoulette, loadDemoRoom } = useStore(s => ({
-    room: s.room, members: s.members, myId: s.myId,
-    isHost: s.isHost, phase: s.phase,
-    startRoulette: s.startRoulette, loadDemoRoom: s.loadDemoRoom,
+
+  const { room, members, myId, isHost, phase, startRoulette, leaveRoom } = useStore(s => ({
+    room:          s.room,
+    members:       s.members,
+    myId:          s.myId,
+    isHost:        s.isHost,
+    phase:         s.phase,
+    startRoulette: s.startRoulette,
+    leaveRoom:     s.leaveRoom,
   }))
 
-  // 지도 ref — 포커싱 메서드 호출용
+  // ── 새로고침/직접접속 시 상태 복원 ──
+  const { restoreState, errorMsg, retry } = useRoomRestore(roomId)
+
+  // ── 실시간 GPS + Supabase 구독 (복원 완료 후에만 활성) ──
+  useRealtime(restoreState === 'ok' ? roomId : null)
+
   const mapRef = useRef(null)
-  const [shareToast, setShareToast] = useState(false)
+  const [shareToast, setShareToast]   = useState(false)
   const [focusedMember, setFocusedMember] = useState(null)
 
-  useRealtime(roomId)
-  useEffect(() => { if (!room) loadDemoRoom() }, [])
   useEffect(() => {
     if (phase === 'roulette' || phase === 'done') navigate(`/roulette/${roomId}`)
   }, [phase])
 
-  // 멤버 클릭 → 지도 포커싱
   const handleFocus = (member) => {
     setFocusedMember(member)
-    if (member) {
-      mapRef.current?.focusMember(member)
-    } else {
-      mapRef.current?.resetView()
-    }
+    if (member) mapRef.current?.focusMember(member)
+    else        mapRef.current?.resetView()
   }
 
   const handleShare = async () => {
@@ -45,7 +50,7 @@ export default function DashboardPage() {
           objectType: 'feed',
           content: {
             title: `${room?.title || '너 어디야?'} 📍`,
-            description: `📍 ${room?.destination?.name || '약속 장소'} | 지금 바로 참가해!`,
+            description: `📍 ${room?.destination?.name} | 지금 바로 참가해!`,
             imageUrl: 'https://via.placeholder.com/800x400/4A7C9E/ffffff?text=%EB%84%88+%EC%96%B4%EB%94%94%EC%95%BC',
             link: { mobileWebUrl: url, webUrl: url },
           },
@@ -63,18 +68,59 @@ export default function DashboardPage() {
     }
   }
 
+  // ── 로딩 화면 ──
+  if (restoreState === 'loading') {
+    return (
+      <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center gap-4 px-6">
+        <div className="text-5xl animate-float">📍</div>
+        <div className="text-center">
+          <p className="font-bold text-mcm-charcoal text-lg mb-1">방 정보 불러오는 중...</p>
+          <p className="text-mcm-stone text-sm">잠시만 기다려주세요</p>
+        </div>
+        {/* 로딩 인디케이터 */}
+        <div className="flex gap-1.5 mt-2">
+          {[0,1,2].map(i => (
+            <div
+              key={i}
+              className="w-2 h-2 rounded-full bg-mcm-blue animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }}
+            />
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  // ── 에러 화면 ──
+  if (restoreState === 'error') {
+    return (
+      <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center gap-5 px-6">
+        <div className="text-5xl">😵</div>
+        <div className="card-mcm p-6 text-center w-full max-w-[320px]">
+          <p className="font-bold text-mcm-charcoal text-lg mb-2">앗, 문제가 생겼어요</p>
+          <p className="text-mcm-stone text-sm mb-5">{errorMsg}</p>
+          <div className="flex gap-3">
+            <button
+              onClick={() => navigate('/')}
+              className="btn-mcm-ghost py-3 flex-1 text-sm font-bold rounded-pill"
+            >
+              홈으로
+            </button>
+            <button
+              onClick={retry}
+              className="btn-mcm-primary py-3 flex-1 text-sm font-bold"
+            >
+              다시 시도
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   const arrivedCount = members.filter(m => m.status === 'arrived').length
   const movingCount  = members.filter(m => m.status === 'moving').length
   const waitingCount = members.filter(m => m.status === 'waiting').length
-
-  if (!room) return (
-    <div className="min-h-dvh bg-gray-50 flex items-center justify-center">
-      <div className="text-center">
-        <div className="text-5xl mb-4 animate-float">📍</div>
-        <p className="text-mcm-stone font-medium">위치 연결 중...</p>
-      </div>
-    </div>
-  )
 
   return (
     <div className="h-dvh flex flex-col bg-gray-50 overflow-hidden">
@@ -90,18 +136,28 @@ export default function DashboardPage() {
           <p className="font-bold text-mcm-charcoal text-sm leading-tight truncate">{room.title}</p>
           <p className="text-mcm-stone text-xs mt-0.5 truncate">📍 {room.destination?.name}</p>
         </div>
-        <div className="flex gap-1.5 flex-shrink-0 ml-3">
-          <span className="badge-arrived">✅ {arrivedCount}</span>
-          <span className="badge-moving">🏃 {movingCount}</span>
-          <span className="badge-waiting">🛋️ {waitingCount}</span>
+        <div className="flex items-center gap-2 flex-shrink-0 ml-3">
+          <div className="flex gap-1">
+            <span className="badge-arrived">✅ {arrivedCount}</span>
+            <span className="badge-moving">🏃 {movingCount}</span>
+            <span className="badge-waiting">🛋️ {waitingCount}</span>
+          </div>
+          {/* 나가기 버튼 */}
+          <button
+            onClick={() => { leaveRoom(); navigate('/') }}
+            className="text-mcm-stone text-xs font-medium hover:text-mcm-clay transition-colors ml-1"
+            title="방 나가기"
+          >
+            ✕
+          </button>
         </div>
       </div>
 
-      {/* ③ 지도 — ref 연결 */}
+      {/* ③ 지도 */}
       <div className="flex-1 relative min-h-0">
         <KakaoMap ref={mapRef} members={members} destination={room.destination} />
 
-        {/* 포커싱 중일 때: 전체보기 버튼 */}
+        {/* 포커싱 중 전체보기 버튼 */}
         {focusedMember && (
           <button
             onClick={() => handleFocus(null)}
@@ -110,8 +166,7 @@ export default function DashboardPage() {
                        px-3 py-1.5 rounded-pill shadow-md
                        flex items-center gap-1.5 animate-bouncy whitespace-nowrap"
           >
-            <span>🗺️</span>
-            <span>전체 보기</span>
+            🗺️ 전체 보기
           </button>
         )}
 
@@ -140,7 +195,7 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ④ 멤버 리스트 — onFocus 연결 */}
+      {/* ④ 멤버 리스트 */}
       <div className="flex-shrink-0 max-h-[40vh] overflow-y-auto no-scrollbar shadow-[0_-4px_20px_rgba(0,0,0,0.06)] bg-white">
         <MemberStatusList members={members} onFocus={handleFocus} />
       </div>

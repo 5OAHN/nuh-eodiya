@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
+import { saveSession, clearSession } from '../lib/session'
 
 const MCM_COLORS = ['#4A7C9E','#C9982A','#6B9E6E','#C27B5A','#7B7EC9','#9E6B6B','#6B9E9C']
 
-// 데모용 목데이터
 const MOCK_ROOM = {
   id: 'demo-room-001',
   title: '강남역 점심 🍜',
@@ -20,26 +20,32 @@ const MOCK_MEMBERS = [
 ]
 
 export const useStore = create((set, get) => ({
-  room: null,
-  members: [],
-  myId: null,
-  myNickname: '',
-  myEmoji: '🙂',
-  isHost: false,
-  phase: 'lobby',
-  nudgeCooldowns: {},
-  rouletteResult: null,
+  room:            null,
+  members:         [],
+  myId:            null,
+  myNickname:      '',
+  myEmoji:         '🙂',
+  isHost:          false,
+  phase:           'lobby',
+  nudgeCooldowns:  {},
+  rouletteResult:  null,
   rouletteTargets: [],
 
-  // ── 데모 모드 ──
+  // ── 데모 모드 ──────────────────────────────────────
   loadDemoRoom: () => {
+    // 이미 데모 로드된 경우 중복 방지
+    if (get().room?.id === 'demo-room-001') return
+
     set({
-      room: MOCK_ROOM, members: MOCK_MEMBERS,
+      room: { ...MOCK_ROOM, meetingTime: Date.now() + 12 * 60 * 1000 },
+      members: MOCK_MEMBERS,
       myId: 'user-001', myNickname: '불꽃감자',
       isHost: true, phase: 'live',
     })
-    // 위치 시뮬레이션
-    const id = setInterval(() => {
+
+    // 위치 시뮬레이션 (인터벌 중복 방지)
+    if (get()._demoTimer) return
+    const timer = setInterval(() => {
       set(state => ({
         members: state.members.map(m => {
           if (m.status === 'arrived' || m.status === 'waiting') return m
@@ -54,24 +60,36 @@ export const useStore = create((set, get) => ({
         })
       }))
     }, 3000)
-    // 컴포넌트 언마운트 시 정리는 페이지에서
-    get()._demoIntervalId = id
+    set({ _demoTimer: timer })
   },
 
-  // ── 방 생성 (Supabase 연동 후 roomService에서 호출) ──
-  initRoom: (room, member, isHost) => {
+  stopDemoTimer: () => {
+    const t = get()._demoTimer
+    if (t) { clearInterval(t); set({ _demoTimer: null }) }
+  },
+
+  // ── 방 초기화 (Supabase 복원 / 신규 생성 공용) ───────
+  initRoom: (room, myMember, isHost) => {
     set({
       room,
-      myId: member.id,
-      myNickname: member.nickname,
-      myEmoji: member.emoji,
+      myId:       myMember.id,
+      myNickname: myMember.nickname,
+      myEmoji:    myMember.emoji,
       isHost,
-      phase: 'live',
-      members: [member],
+      phase:      room.phase || 'live',
+      members:    [myMember],
+    })
+    // 세션 저장 → 새로고침 후 복원에 사용
+    saveSession({
+      roomId:   room.id,
+      memberId: myMember.id,
+      nickname: myMember.nickname,
+      emoji:    myMember.emoji,
+      isHost,
     })
   },
 
-  // ── 멤버 추가/업데이트 (Supabase 실시간) ──
+  // ── Supabase 실시간 수신 멤버 병합 ───────────────────
   updateMembersFromDB: (updatedMembers) => {
     set(state => {
       const map = new Map(state.members.map(m => [m.id, m]))
@@ -80,7 +98,7 @@ export const useStore = create((set, get) => ({
     })
   },
 
-  // ── 내 위치 로컬 업데이트 ──
+  // ── 내 위치 로컬 즉시 반영 ───────────────────────────
   setMemberLocation: (id, lat, lng, eta, status) => {
     set(state => ({
       members: state.members.map(m =>
@@ -89,7 +107,7 @@ export const useStore = create((set, get) => ({
     }))
   },
 
-  // ── 로컬 방 생성 (Supabase 없을 때) ──
+  // ── 로컬 방 생성 (Supabase 없을 때) ─────────────────
   createRoom: (data) => {
     const roomId   = nanoid(8)
     const memberId = get().myId || `m-${nanoid(6)}`
@@ -98,7 +116,7 @@ export const useStore = create((set, get) => ({
     return roomId
   },
 
-  // ── 프로필 설정 ──
+  // ── 프로필 설정 ───────────────────────────────────────
   setProfile: (nickname, emoji) => {
     const myId  = `m-${nanoid(6)}`
     const color = MCM_COLORS[Math.floor(Math.random() * MCM_COLORS.length)]
@@ -111,7 +129,7 @@ export const useStore = create((set, get) => ({
     }))
   },
 
-  // ── 재촉하기 ──
+  // ── 재촉하기 ──────────────────────────────────────────
   nudge: (targetId) => {
     const now  = Date.now()
     const last = get().nudgeCooldowns[targetId] || 0
@@ -120,12 +138,24 @@ export const useStore = create((set, get) => ({
     return { ok: true }
   },
 
-  // ── 룰렛 ──
+  // ── 룰렛 ─────────────────────────────────────────────
   startRoulette: () => {
     const latecomers = get().members.filter(m => m.status !== 'arrived')
     set({ phase: 'roulette', rouletteTargets: latecomers.length > 0 ? latecomers : get().members })
   },
   setRouletteResult: (member, penalty) => {
     set({ rouletteResult: { member, penalty }, phase: 'done' })
+  },
+
+  // ── 방 나가기 / 세션 초기화 ──────────────────────────
+  leaveRoom: () => {
+    get().stopDemoTimer()
+    clearSession()
+    set({
+      room: null, members: [], myId: null,
+      myNickname: '', myEmoji: '🙂',
+      isHost: false, phase: 'lobby',
+      nudgeCooldowns: {}, rouletteResult: null, rouletteTargets: [],
+    })
   },
 }))
