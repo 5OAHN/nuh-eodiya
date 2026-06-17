@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#FF4D00" />
+    <meta name="description" content="너 어디야 - 실시간 위치 공유 & 약속 관리" />
+    <!-- 오픈 그래프 -->
+    <meta property="og:title" content="너 어디야 🚨" />
+    <meta property="og:description" content="지금 어디야? 실시간으로 확인해봐" />
+    <meta property="og:type" content="website" />
+
+    <!-- Google Fonts: Gmarket Sans 대체 -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;700;900&display=swap" rel="stylesheet" />
+
+    <title>너 어디야 🚨</title>
+
+    <script>
+      // 카카오 SDK 동적 로드 (VITE 환경변수 없이 런타임 주입)
+      window.__KAKAO_JS_KEY__ = null; // 런타임에 env에서 주입됨
+    </script>
+  </head>
+  <body class="bg-black text-white overflow-x-hidden">
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
