@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store/useStore'
+import { makeJoinUrl, makeKakaoSharePayload } from '../../lib/shareUrl'
 
 const COOLDOWN_SEC = 30
 
@@ -104,23 +105,17 @@ export default function NudgeButton({ targetMember }) {
 async function sendKakaoNudge(fromName, toName, room) {
   try {
     const Kakao = await window.loadKakaoSDK()
-    if (!Kakao?.isInitialized()) return
-
-    const url = room
-      ? `${import.meta.env.VITE_APP_BASE_URL || window.location.origin}/room/${room.id}`
-      : window.location.href
-
-    Kakao.Share.sendDefault({
-      objectType: 'feed',
-      content: {
-        title: `📍 ${fromName}님이 찾고 있어요!`,
-        description: `${toName}님, 지금 어디야?? 다들 기다리고 있어요 😤`,
-        imageUrl: 'https://via.placeholder.com/800x400/4A7C9E/ffffff?text=%EB%84%88+%EC%96%B4%EB%94%94%EC%95%BC',
-        link: { mobileWebUrl: url, webUrl: url },
-      },
-      buttons: [{ title: '위치 확인하기 📍', link: { mobileWebUrl: url, webUrl: url } }],
+    if (!Kakao?.isInitialized()) {
+      console.log(`[Nudge 데모] ${fromName} → ${toName}`)
+      return
+    }
+    const payload = makeKakaoSharePayload({
+      title:       `🚨 ${fromName}님이 찾고 있어요!`,
+      description: `${toName}님, 지금 어디야?? 다들 기다리고 있어요 😤`,
+      roomId:      room?.id,
     })
-  } catch {
-    console.log(`[Nudge 데모] ${fromName} → ${toName}`)
+    Kakao.Share.sendDefault(payload)
+  } catch (e) {
+    console.warn('[Nudge]', e)
   }
 }

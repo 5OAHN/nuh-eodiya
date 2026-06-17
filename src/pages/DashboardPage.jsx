@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 import { useRealtime } from '../hooks/useRealtime'
 import { useRoomRestore } from '../hooks/useRoomRestore'
+import { makeJoinUrl, makeKakaoSharePayload } from '../lib/shareUrl'
 import CountdownTimer from '../components/map/CountdownTimer'
 import KakaoMap from '../components/map/KakaoMap'
 import MemberStatusList from '../components/map/MemberStatusList'
@@ -12,23 +13,17 @@ export default function DashboardPage() {
   const navigate   = useNavigate()
 
   const { room, members, myId, isHost, phase, startRoulette, leaveRoom } = useStore(s => ({
-    room:          s.room,
-    members:       s.members,
-    myId:          s.myId,
-    isHost:        s.isHost,
-    phase:         s.phase,
-    startRoulette: s.startRoulette,
-    leaveRoom:     s.leaveRoom,
+    room: s.room, members: s.members, myId: s.myId,
+    isHost: s.isHost, phase: s.phase,
+    startRoulette: s.startRoulette, leaveRoom: s.leaveRoom,
   }))
 
-  // ── 새로고침/직접접속 시 상태 복원 ──
   const { restoreState, errorMsg, retry } = useRoomRestore(roomId)
-
-  // ── 실시간 GPS + Supabase 구독 (복원 완료 후에만 활성) ──
   useRealtime(restoreState === 'ok' ? roomId : null)
 
   const mapRef = useRef(null)
-  const [shareToast, setShareToast]   = useState(false)
+  const [shareToast, setShareToast]       = useState(false)
+  const [shareToastMsg, setShareToastMsg] = useState('')
   const [focusedMember, setFocusedMember] = useState(null)
 
   useEffect(() => {
@@ -41,34 +36,55 @@ export default function DashboardPage() {
     else        mapRef.current?.resetView()
   }
 
+  const showToast = (msg) => {
+    setShareToastMsg(msg)
+    setShareToast(true)
+    setTimeout(() => setShareToast(false), 2500)
+  }
+
   const handleShare = async () => {
-    const url = `${import.meta.env.VITE_APP_BASE_URL || window.location.origin}/join/${room?.id || roomId}`
+    const roomData   = room || {}
+    const joinUrl    = makeJoinUrl(room?.id || roomId)
+    const payload    = makeKakaoSharePayload({
+      title:       `${roomData.title || '너 어디야?'} 📍`,
+      description: `📍 ${roomData.destination?.name || '약속 장소'} | 지금 바로 참가해!`,
+      roomId:      room?.id || roomId,
+    })
+
+    // ① 카카오 공유 시도
     try {
       const Kakao = await window.loadKakaoSDK()
       if (Kakao?.isInitialized()) {
-        Kakao.Share.sendDefault({
-          objectType: 'feed',
-          content: {
-            title: `${room?.title || '너 어디야?'} 📍`,
-            description: `📍 ${room?.destination?.name} | 지금 바로 참가해!`,
-            imageUrl: 'https://via.placeholder.com/800x400/4A7C9E/ffffff?text=%EB%84%88+%EC%96%B4%EB%94%94%EC%95%BC',
-            link: { mobileWebUrl: url, webUrl: url },
-          },
-          buttons: [{ title: '참가하기 📍', link: { mobileWebUrl: url, webUrl: url } }],
+        Kakao.Share.sendDefault(payload)
+        return // 카카오 공유 성공 시 토스트 없음 (카카오가 UI 처리)
+      }
+    } catch (e) {
+      console.warn('[KakaoShare]', e)
+    }
+
+    // ② Web Share API (모바일 네이티브 공유)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: roomData.title || '너 어디야',
+          text:  `📍 ${roomData.destination?.name || '약속 장소'}에서 만나요!`,
+          url:   joinUrl,
         })
         return
-      }
-    } catch {}
-    if (navigator.share) {
-      navigator.share({ title: room?.title || '너 어디야', url }).catch(() => {})
-    } else {
-      await navigator.clipboard.writeText(url).catch(() => {})
-      setShareToast(true)
-      setTimeout(() => setShareToast(false), 2200)
+      } catch {}
+    }
+
+    // ③ 클립보드 복사 (데스크탑 폴백)
+    try {
+      await navigator.clipboard.writeText(joinUrl)
+      showToast('📋 링크 복사됨!')
+    } catch {
+      // clipboard도 안되면 URL 직접 표시
+      showToast(`링크: ${joinUrl}`)
     }
   }
 
-  // ── 로딩 화면 ──
+  // ── 로딩 ──
   if (restoreState === 'loading') {
     return (
       <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center gap-4 px-6">
@@ -77,21 +93,17 @@ export default function DashboardPage() {
           <p className="font-bold text-mcm-charcoal text-lg mb-1">방 정보 불러오는 중...</p>
           <p className="text-mcm-stone text-sm">잠시만 기다려주세요</p>
         </div>
-        {/* 로딩 인디케이터 */}
         <div className="flex gap-1.5 mt-2">
           {[0,1,2].map(i => (
-            <div
-              key={i}
-              className="w-2 h-2 rounded-full bg-mcm-blue animate-bounce"
-              style={{ animationDelay: `${i * 0.15}s` }}
-            />
+            <div key={i} className="w-2 h-2 rounded-full bg-mcm-blue animate-bounce"
+              style={{ animationDelay: `${i * 0.15}s` }} />
           ))}
         </div>
       </div>
     )
   }
 
-  // ── 에러 화면 ──
+  // ── 에러 ──
   if (restoreState === 'error') {
     return (
       <div className="min-h-dvh bg-gray-50 flex flex-col items-center justify-center gap-5 px-6">
@@ -100,18 +112,8 @@ export default function DashboardPage() {
           <p className="font-bold text-mcm-charcoal text-lg mb-2">앗, 문제가 생겼어요</p>
           <p className="text-mcm-stone text-sm mb-5">{errorMsg}</p>
           <div className="flex gap-3">
-            <button
-              onClick={() => navigate('/')}
-              className="btn-mcm-ghost py-3 flex-1 text-sm font-bold rounded-pill"
-            >
-              홈으로
-            </button>
-            <button
-              onClick={retry}
-              className="btn-mcm-primary py-3 flex-1 text-sm font-bold"
-            >
-              다시 시도
-            </button>
+            <button onClick={() => navigate('/')} className="btn-mcm-ghost py-3 flex-1 text-sm font-bold rounded-pill">홈으로</button>
+            <button onClick={retry} className="btn-mcm-primary py-3 flex-1 text-sm font-bold">다시 시도</button>
           </div>
         </div>
       </div>
@@ -142,10 +144,9 @@ export default function DashboardPage() {
             <span className="badge-moving">🏃 {movingCount}</span>
             <span className="badge-waiting">🛋️ {waitingCount}</span>
           </div>
-          {/* 나가기 버튼 */}
           <button
             onClick={() => { leaveRoom(); navigate('/') }}
-            className="text-mcm-stone text-xs font-medium hover:text-mcm-clay transition-colors ml-1"
+            className="text-mcm-stone text-xs font-medium hover:text-mcm-clay transition-colors ml-1 p-1"
             title="방 나가기"
           >
             ✕
@@ -157,7 +158,6 @@ export default function DashboardPage() {
       <div className="flex-1 relative min-h-0">
         <KakaoMap ref={mapRef} members={members} destination={room.destination} />
 
-        {/* 포커싱 중 전체보기 버튼 */}
         {focusedMember && (
           <button
             onClick={() => handleFocus(null)}
@@ -170,19 +170,9 @@ export default function DashboardPage() {
           </button>
         )}
 
-        {/* 공유 FAB */}
-        <button
-          onClick={handleShare}
-          className="absolute bottom-3 right-3 z-10
-                     bg-white border border-neutral-200 shadow-lg rounded-pill
-                     px-4 py-2 text-sm font-bold text-mcm-charcoal
-                     flex items-center gap-1.5
-                     hover:shadow-xl active:scale-95 transition-all duration-150"
-        >
-          🔗 공유
-        </button>
+        {/* 공유 버튼 — 링크 미리보기 포함 */}
+        <ShareFab room={room} roomId={roomId} onShare={handleShare} />
 
-        {/* GPS 상태 */}
         <GpsIndicator members={members} myId={myId} />
 
         {shareToast && (
@@ -190,7 +180,7 @@ export default function DashboardPage() {
                           bg-white border border-neutral-200 shadow-lg rounded-pill
                           px-4 py-2 text-sm font-bold text-mcm-pistachio
                           animate-bouncy whitespace-nowrap">
-            📋 링크 복사됨!
+            {shareToastMsg}
           </div>
         )}
       </div>
@@ -220,6 +210,65 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  )
+}
+
+/* 공유 버튼 + 링크 미리보기 패널 */
+function ShareFab({ room, roomId, onShare }) {
+  const [open, setOpen] = useState(false)
+  const joinUrl = makeJoinUrl(room?.id || roomId)
+
+  return (
+    <>
+      {/* 오버레이 */}
+      {open && (
+        <div className="absolute inset-0 z-10" onClick={() => setOpen(false)} />
+      )}
+
+      {/* 링크 미리보기 패널 */}
+      {open && (
+        <div className="absolute bottom-14 right-3 z-20 w-[260px] bg-white border border-neutral-200 rounded-2xl shadow-xl p-4 animate-scale-in">
+          <p className="label-mcm mb-2">참가 링크</p>
+
+          {/* URL 표시 */}
+          <div className="bg-gray-50 border border-neutral-200 rounded-xl px-3 py-2 mb-3 break-all">
+            <p className="text-xs text-mcm-charcoal font-medium leading-relaxed">{joinUrl}</p>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={() => { onShare(); setOpen(false) }}
+              className="btn-mcm-primary py-3 w-full text-sm font-bold flex items-center justify-center gap-2"
+            >
+              <span>💬</span>
+              <span>카카오톡으로 공유</span>
+            </button>
+            <button
+              onClick={async () => {
+                await navigator.clipboard.writeText(joinUrl).catch(() => {})
+                setOpen(false)
+              }}
+              className="btn-mcm-ghost py-2.5 w-full text-sm font-bold rounded-pill flex items-center justify-center gap-2"
+            >
+              <span>📋</span>
+              <span>링크 복사</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* FAB 버튼 */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="absolute bottom-3 right-3 z-10
+                   bg-white border border-neutral-200 shadow-lg rounded-pill
+                   px-4 py-2 text-sm font-bold text-mcm-charcoal
+                   flex items-center gap-1.5
+                   hover:shadow-xl active:scale-95 transition-all duration-150"
+      >
+        🔗 공유
+      </button>
+    </>
   )
 }
 
