@@ -8,19 +8,25 @@ export default function RoulettePage() {
   const { roomId } = useParams()
   const navigate   = useNavigate()
 
-  const { phase, startRoulette, rouletteTargets } = useStore(s => ({
+  const { phase, startRoulette, rouletteTargets, resetPhase } = useStore(s => ({
     phase:           s.phase,
     startRoulette:   s.startRoulette,
     rouletteTargets: s.rouletteTargets,
+    resetPhase:      s.resetPhase,
   }))
 
-  // 새로고침 시 방 상태 복원
   const { restoreState } = useRoomRestore(roomId)
 
   useEffect(() => {
     if (restoreState !== 'ok') return
     if (rouletteTargets.length === 0) startRoulette()
   }, [restoreState])
+
+  // ── 버그2 수정: 지도로 돌아갈 때 phase를 'live'로 리셋 ──
+  const handleBackToMap = () => {
+    resetPhase()
+    navigate(`/room/${roomId}`, { replace: true })
+  }
 
   if (restoreState === 'loading') {
     return (
@@ -35,10 +41,10 @@ export default function RoulettePage() {
 
   return (
     <div className="min-h-dvh bg-gray-50 flex flex-col">
-      {/* 헤더 */}
+      {/* 헤더 — 뒤로가기도 phase 리셋 */}
       <div className="flex-shrink-0 bg-white border-b border-neutral-200 px-4 py-4 flex items-center gap-3 shadow-sm">
         <button
-          onClick={() => navigate(`/room/${roomId}`)}
+          onClick={handleBackToMap}
           className="w-9 h-9 rounded-full bg-gray-100 flex items-center justify-center text-mcm-charcoal font-bold hover:bg-gray-200 transition-colors"
         >
           ←
@@ -61,7 +67,7 @@ export default function RoulettePage() {
           style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
         >
           <button
-            onClick={() => navigate(`/room/${roomId}`)}
+            onClick={handleBackToMap}
             className="btn-mcm-primary py-4 w-full text-base font-bold"
           >
             🗺️ 지도로 돌아가기

@@ -147,6 +147,11 @@ export const useStore = create((set, get) => ({
     set({ rouletteResult: { member, penalty }, phase: 'done' })
   },
 
+  // 룰렛 → 지도 복귀 시 phase 리셋
+  resetPhase: () => {
+    set({ phase: 'live' })
+  },
+
   // ── 방 나가기 / 세션 초기화 ──────────────────────────
   leaveRoom: () => {
     get().stopDemoTimer()
