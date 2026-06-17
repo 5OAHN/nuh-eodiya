@@ -4,8 +4,7 @@ import { useStore } from '../store/useStore'
 import { joinRoom, fetchRoom } from '../lib/roomService'
 import { isSupabaseReady } from '../lib/supabase'
 import { isSessionValid } from '../lib/session'
-
-const EMOJIS = ['🙂','🔥','⚡','🚀','💥','🎯','🐉','🦊','💎','👾','🌈','🐌']
+import Character from '../components/character/Character'
 
 export default function JoinPage() {
   const { roomId }  = useParams()
@@ -69,7 +68,7 @@ export default function JoinPage() {
     setError('')
     try {
       if (isSupabaseReady() && roomId !== 'input') {
-        const { memberId, room } = await joinRoom(roomId, { nickname, emoji })
+        const { memberId, room } = await joinRoom(roomId, { nickname, emoji: '🙂' })
         if (!room) throw new Error('방을 찾을 수 없습니다.')
         initRoom(
           {
@@ -80,12 +79,12 @@ export default function JoinPage() {
             hostId:      room.host_id,
             phase:       room.phase,
           },
-          { id: memberId, nickname, emoji, color: '#C9982A', status: 'waiting', eta: null, isHost: false },
+          { id: memberId, nickname, emoji: '🙂', color: '#C9982A', status: 'waiting', eta: null, isHost: false },
           false
         )
         navigate(`/room/${roomId}`)
       } else {
-        setProfile(nickname, emoji)
+        setProfile(nickname, '🙂')
         loadDemoRoom()
         navigate(`/room/${roomId === 'input' ? 'demo-room-001' : roomId}`)
       }
@@ -183,22 +182,6 @@ export default function JoinPage() {
           </p>
           {roomDest && <p className="text-mcm-stone text-sm mt-1">📍 {roomDest}</p>}
         </div>
-
-        {/* 이모지 */}
-        <div>
-          <label className="label-mcm">캐릭터 선택</label>
-          <div className="grid grid-cols-6 gap-2">
-            {EMOJIS.map(e => (
-              <button key={e} onClick={() => setEmoji(e)}
-                className={`text-3xl py-2.5 rounded-xl border transition-all duration-150 ${
-                  emoji === e
-                    ? 'bg-mcm-blue-light border-mcm-blue shadow-md scale-110'
-                    : 'bg-white border-neutral-200 hover:bg-gray-50 shadow-sm'
-                }`}>{e}</button>
-            ))}
-          </div>
-        </div>
-
         {/* 닉네임 */}
         <div>
           <label className="label-mcm">닉네임 *</label>
@@ -215,9 +198,7 @@ export default function JoinPage() {
 
         {/* 미리보기 */}
         <div className="card-mcm p-5 flex flex-col items-center gap-3">
-          <div className="w-[72px] h-[72px] rounded-full bg-mcm-blue-light flex items-center justify-center text-4xl shadow-md animate-float border-2 border-white">
-            {emoji}
-          </div>
+          <Character member={{ status: 'moving', color: '#C9982A' }} size={72} animate />
           <span className="font-bold text-mcm-charcoal text-lg">{nickname || '닉네임'}</span>
         </div>
 

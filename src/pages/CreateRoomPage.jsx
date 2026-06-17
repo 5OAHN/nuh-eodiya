@@ -4,9 +4,9 @@ import { useStore } from '../store/useStore'
 import { createRoom as createRoomService } from '../lib/roomService'
 import { isSupabaseReady } from '../lib/supabase'
 import PlaceSearchModal from '../components/map/PlaceSearchModal'
+import Character from '../components/character/Character'
 
 const DEFAULT_PENALTIES = ['아메리카노 쏘기 ☕','밥 사기 🍚','노래방 탬버린 담당 🎵','다음 약속 장소 결정 📍','사진 찍힘 📸']
-const EMOJIS = ['🔥','⚡','🚀','💥','🎯','🐉','🦊','💎','👾','🌈','🐌','🌙']
 
 export default function CreateRoomPage() {
   const navigate = useNavigate()
@@ -21,7 +21,6 @@ export default function CreateRoomPage() {
   const [penalties, setPenalties] = useState([...DEFAULT_PENALTIES])
   const [newPenalty, setNewP]     = useState('')
   const [nickname, setNickname]   = useState('')
-  const [emoji, setEmoji]         = useState('🔥')
   const [showSearch, setShowSearch] = useState(false)
   const [loading, setLoading]     = useState(false)
 
@@ -48,15 +47,15 @@ export default function CreateRoomPage() {
     }
     try {
       if (isSupabaseReady()) {
-        const { roomId, memberId } = await createRoomService(roomData, { nickname, emoji })
+        const { roomId, memberId } = await createRoomService(roomData, { nickname, emoji: '🙂' })
         initRoom(
           { id: roomId, ...roomData, hostId: memberId, phase: 'live' },
-          { id: memberId, nickname, emoji, color: '#4A7C9E', status: 'waiting', eta: null, isHost: true },
+          { id: memberId, nickname, emoji: '🙂', color: '#4A7C9E', status: 'waiting', eta: null, isHost: true },
           true
         )
         navigate(`/room/${roomId}`)
       } else {
-        setProfile(nickname, emoji)
+        setProfile(nickname, '🙂')
         const roomId = createRoom(roomData)
         navigate(`/room/${roomId}`)
       }
@@ -201,26 +200,6 @@ export default function CreateRoomPage() {
               <p className="text-mcm-stone text-sm font-medium">참여자들에게 보일 캐릭터를 골라봐요</p>
             </div>
 
-            <Field label="캐릭터 선택">
-              <div className="grid grid-cols-6 gap-2">
-                {EMOJIS.map(e => (
-                  <button
-                    key={e}
-                    onClick={() => {
-                      setEmoji(e)
-                      // 이모지 선택 후 닉네임 필드로 포커싱
-                      setTimeout(() => nicknameRef.current?.focus(), 100)
-                    }}
-                    className={`text-3xl py-2.5 rounded-xl border transition-all duration-150 ${
-                      emoji === e
-                        ? 'bg-mcm-blue-light border-mcm-blue shadow-md scale-110'
-                        : 'bg-white border-neutral-200 hover:bg-gray-50 shadow-sm'
-                    }`}
-                  >{e}</button>
-                ))}
-              </div>
-            </Field>
-
             <Field label="닉네임 *">
               <input
                 ref={nicknameRef}
@@ -242,9 +221,7 @@ export default function CreateRoomPage() {
 
             {/* 미리보기 */}
             <div className="card-mcm p-6 flex flex-col items-center gap-3">
-              <div className="w-20 h-20 rounded-full bg-mcm-blue-light flex items-center justify-center text-4xl shadow-md animate-float border-2 border-white">
-                {emoji}
-              </div>
+              <Character member={{ status: 'moving', color: '#4A7C9E' }} size={72} animate />
               <span className="font-bold text-mcm-charcoal text-lg">{nickname || '닉네임'}</span>
               <span className="badge-arrived">미리보기</span>
             </div>
