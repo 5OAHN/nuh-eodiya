@@ -3,43 +3,34 @@ import { useNavigate } from 'react-router-dom'
 import { useStore } from '../store/useStore'
 
 const DEFAULT_PENALTIES = [
-  '아메리카노 쏘기 ☕',
-  '밥 사기 🍚',
-  '노래방 탬버린 담당 🎵',
-  '다음 약속 장소 결정 📍',
-  '사진 찍힘 📸',
+  '아메리카노 쏘기 ☕', '밥 사기 🍚',
+  '노래방 탬버린 담당 🎵', '다음 약속 장소 결정 📍', '사진 찍힘 📸',
 ]
-
-const EMOJIS = ['🔥','⚡','🚀','💥','🎯','🐉','🦊','💎','👾','🌈']
+const EMOJIS = ['🔥','⚡','🚀','💥','🎯','🐉','🦊','💎','👾','🌈','🐌','🌙']
 
 export default function CreateRoomPage() {
-  const navigate = useNavigate()
-  const createRoom = useStore(s => s.createRoom)
-  const setProfile = useStore(s => s.setProfile)
+  const navigate    = useNavigate()
+  const createRoom  = useStore(s => s.createRoom)
+  const setProfile  = useStore(s => s.setProfile)
 
-  const [step, setStep] = useState(1) // 1: 방 설정, 2: 프로필
-  const [title, setTitle] = useState('')
-  const [destination, setDestination] = useState('')
-  const [time, setTime] = useState('')
-  const [penalties, setPenalties] = useState([...DEFAULT_PENALTIES])
-  const [newPenalty, setNewPenalty] = useState('')
-  const [nickname, setNickname] = useState('')
-  const [selectedEmoji, setSelectedEmoji] = useState('🔥')
+  const [step, setStep]             = useState(1)
+  const [title, setTitle]           = useState('')
+  const [destination, setDest]      = useState('')
+  const [time, setTime]             = useState('')
+  const [penalties, setPenalties]   = useState([...DEFAULT_PENALTIES])
+  const [newPenalty, setNewP]       = useState('')
+  const [nickname, setNickname]     = useState('')
+  const [emoji, setEmoji]           = useState('🔥')
 
-  const handleAddPenalty = () => {
+  const addPenalty = () => {
     if (!newPenalty.trim()) return
     setPenalties(p => [...p, newPenalty.trim()])
-    setNewPenalty('')
-  }
-
-  const handleRemovePenalty = (i) => {
-    setPenalties(p => p.filter((_, idx) => idx !== i))
+    setNewP('')
   }
 
   const handleCreate = () => {
     if (!nickname.trim()) return alert('닉네임을 입력해주세요!')
-    setProfile(nickname, selectedEmoji)
-
+    setProfile(nickname, emoji)
     const meetingTime = time ? new Date(time).getTime() : Date.now() + 30 * 60 * 1000
     const roomId = createRoom({
       title: title || '우리 약속',
@@ -51,141 +42,169 @@ export default function CreateRoomPage() {
   }
 
   return (
-    <div className="min-h-dvh bg-kitsch-dark flex flex-col">
+    <div className="min-h-dvh bg-mcm-cream flex flex-col">
       {/* 헤더 */}
-      <div className="bg-kitsch-orange border-b-4 border-black px-4 py-4 flex items-center gap-3">
-        <button onClick={() => navigate(-1)} className="text-black text-2xl font-black">←</button>
-        <h2 className="font-display text-2xl font-black text-black">방 만들기</h2>
-        <div className="ml-auto flex gap-1">
-          {[1,2].map(i => (
-            <div key={i} className={`w-8 h-3 border-2 border-black ${step >= i ? 'bg-black' : 'bg-white'}`} />
+      <div className="flex-shrink-0 bg-white border-b border-mcm-border px-4 py-4 flex items-center gap-3">
+        <button
+          onClick={() => step === 1 ? navigate(-1) : setStep(1)}
+          className="w-9 h-9 rounded-full bg-mcm-warm flex items-center justify-center text-mcm-charcoal font-bold text-base hover:bg-mcm-border transition-colors"
+        >
+          ←
+        </button>
+        <div>
+          <h2 className="font-bold text-mcm-charcoal text-lg leading-tight">
+            {step === 1 ? '약속 설정' : '내 프로필'}
+          </h2>
+          <p className="text-mcm-stone text-xs">{step} / 2단계</p>
+        </div>
+        {/* 스텝 바 */}
+        <div className="ml-auto flex gap-1.5">
+          {[1, 2].map(i => (
+            <div key={i} className={`h-2 rounded-full transition-all duration-300 ${step >= i ? 'w-8 bg-mcm-blue' : 'w-4 bg-mcm-border'}`} />
           ))}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto no-scrollbar p-4 flex flex-col gap-4">
+      {/* 폼 영역 */}
+      <div className="flex-1 overflow-y-auto no-scrollbar px-4 py-5">
         {step === 1 ? (
-          <>
-            <FieldBlock label="약속 이름 🎉" required>
+          <div className="flex flex-col gap-4 animate-fade-in">
+
+            <Field label="약속 이름">
               <input
-                className="w-full bg-white border-2 border-black px-3 py-3 text-black font-bold text-base outline-none"
-                placeholder="강남역 점심 모임"
+                className="input-mcm"
+                placeholder="강남역 점심 모임 🍜"
                 value={title}
                 onChange={e => setTitle(e.target.value)}
               />
-            </FieldBlock>
+            </Field>
 
-            <FieldBlock label="약속 장소 📍" required>
+            <Field label="약속 장소">
               <input
-                className="w-full bg-white border-2 border-black px-3 py-3 text-black font-bold text-base outline-none"
+                className="input-mcm"
                 placeholder="강남역 12번 출구"
                 value={destination}
-                onChange={e => setDestination(e.target.value)}
+                onChange={e => setDest(e.target.value)}
               />
-            </FieldBlock>
+            </Field>
 
-            <FieldBlock label="약속 시간 ⏰">
+            <Field label="약속 시간">
               <input
                 type="datetime-local"
-                className="w-full bg-white border-2 border-black px-3 py-3 text-black font-bold text-base outline-none"
+                className="input-mcm"
                 value={time}
                 onChange={e => setTime(e.target.value)}
               />
-            </FieldBlock>
+            </Field>
 
-            <FieldBlock label="지각 벌칙 목록 🎰">
+            <Field label="지각 벌칙 목록 🎰">
               <div className="flex flex-col gap-2 mb-3">
                 {penalties.map((p, i) => (
-                  <div key={i} className="flex items-center gap-2 bg-kitsch-yellow border-2 border-black px-3 py-2">
-                    <span className="flex-1 text-black font-bold text-sm">{p}</span>
-                    <button onClick={() => handleRemovePenalty(i)} className="text-black text-lg leading-none font-black">×</button>
+                  <div key={i} className="card-mcm-sm px-3 py-2.5 flex items-center gap-2">
+                    <span className="flex-1 text-mcm-charcoal text-sm font-medium">{p}</span>
+                    <button
+                      onClick={() => setPenalties(arr => arr.filter((_, idx) => idx !== i))}
+                      className="w-6 h-6 rounded-full bg-mcm-warm text-mcm-stone text-sm flex items-center justify-center hover:bg-mcm-border transition-colors"
+                    >
+                      ×
+                    </button>
                   </div>
                 ))}
               </div>
               <div className="flex gap-2">
                 <input
-                  className="flex-1 bg-white border-2 border-black px-3 py-2 text-black text-sm outline-none"
-                  placeholder="벌칙 추가..."
+                  className="input-mcm flex-1 text-sm"
+                  placeholder="새 벌칙 추가..."
                   value={newPenalty}
-                  onChange={e => setNewPenalty(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleAddPenalty()}
+                  onChange={e => setNewP(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && addPenalty()}
                 />
-                <button onClick={handleAddPenalty} className="btn-kitsch bg-kitsch-green text-black px-4 py-2 font-black">+</button>
+                <button onClick={addPenalty} className="btn-mcm-primary px-4 py-3 text-sm font-bold flex-shrink-0">
+                  추가
+                </button>
               </div>
-            </FieldBlock>
+            </Field>
 
             <button
               onClick={() => setStep(2)}
-              className="btn-kitsch bg-kitsch-orange text-black text-xl py-5 w-full mt-2"
+              className="btn-mcm-primary py-4 w-full text-base font-bold mt-2"
             >
-              다음 →
+              다음 단계 →
             </button>
-          </>
+          </div>
         ) : (
-          <>
-            <div className="bg-kitsch-blue border-4 border-black shadow-kitsch-lg p-5 text-center animate-bouncy">
-              <p className="font-display text-3xl font-black text-white mb-1">나는 누구?</p>
-              <p className="text-kitsch-green text-sm font-bold">닉네임과 캐릭터를 골라봐</p>
+          <div className="flex flex-col gap-5 animate-fade-in">
+            {/* 안내 카드 */}
+            <div className="card-mcm p-5 text-center">
+              <p className="font-display text-2xl text-mcm-blue mb-1">나는 누구?</p>
+              <p className="text-mcm-stone text-sm">참여자들에게 보일 캐릭터를 골라봐요</p>
             </div>
 
-            <FieldBlock label="이모지 캐릭터 선택">
-              <div className="grid grid-cols-5 gap-3">
+            {/* 이모지 선택 */}
+            <Field label="캐릭터 선택">
+              <div className="grid grid-cols-6 gap-2">
                 {EMOJIS.map(e => (
                   <button
                     key={e}
-                    onClick={() => setSelectedEmoji(e)}
-                    className={`text-3xl py-2 border-2 border-black transition-all ${
-                      selectedEmoji === e
-                        ? 'bg-kitsch-orange shadow-[3px_3px_0px_#000] scale-110'
-                        : 'bg-white'
-                    }`}
-                  >{e}</button>
+                    onClick={() => setEmoji(e)}
+                    className={`text-3xl py-2.5 rounded-xl transition-all duration-150
+                      ${emoji === e
+                        ? 'bg-mcm-blue-light shadow-mcm scale-110'
+                        : 'bg-white shadow-mcm-sm hover:bg-mcm-warm'
+                      }`}
+                  >
+                    {e}
+                  </button>
                 ))}
               </div>
-            </FieldBlock>
+            </Field>
 
-            <FieldBlock label="닉네임" required>
+            {/* 닉네임 */}
+            <Field label="닉네임 *">
               <input
-                className="w-full bg-white border-2 border-black px-3 py-3 text-black font-black text-xl outline-none"
+                className="input-mcm font-bold text-lg"
                 placeholder="불꽃감자"
                 value={nickname}
                 onChange={e => setNickname(e.target.value)}
                 maxLength={8}
               />
-              <p className="text-xs text-gray-400 mt-1">최대 8자</p>
-            </FieldBlock>
+              <p className="text-mcm-stone text-xs mt-1.5 text-right">{nickname.length} / 8</p>
+            </Field>
 
             {/* 미리보기 */}
-            <div className="flex justify-center py-4">
-              <div className="flex flex-col items-center gap-2">
-                <div
-                  className="w-20 h-20 rounded-full border-4 border-black flex items-center justify-center text-4xl shadow-[6px_6px_0px_#000] bg-kitsch-orange animate-float"
-                >
-                  {selectedEmoji}
-                </div>
-                <span className="font-black text-white text-lg">{nickname || '닉네임'}</span>
+            <div className="card-mcm p-6 flex flex-col items-center gap-3">
+              <div
+                className="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-mcm animate-float border-2 border-white"
+                style={{ background: '#4A7C9E33' }}
+              >
+                {emoji}
               </div>
+              <span className="font-bold text-mcm-charcoal text-lg">{nickname || '닉네임'}</span>
+              <span className="badge-arrived">미리보기</span>
             </div>
 
-            <div className="flex gap-3 mt-2">
-              <button onClick={() => setStep(1)} className="btn-kitsch bg-white text-black py-4 flex-1">← 이전</button>
-              <button onClick={handleCreate} className="btn-kitsch bg-kitsch-green text-black py-4 flex-[2] text-lg font-black">
+            <div className="flex gap-3">
+              <button onClick={() => setStep(1)} className="btn-mcm-ghost py-4 flex-1 font-bold text-base rounded-pill">
+                ← 이전
+              </button>
+              <button onClick={handleCreate} className="btn-mcm-primary py-4 flex-[2] text-base font-bold">
                 🚀 방 생성!
               </button>
             </div>
-          </>
+          </div>
         )}
       </div>
+
+      {/* 하단 safe area */}
+      <div style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }} className="flex-shrink-0 bg-mcm-cream" />
     </div>
   )
 }
 
-function FieldBlock({ label, children, required }) {
+function Field({ label, children }) {
   return (
     <div>
-      <label className="block text-kitsch-yellow font-black text-sm mb-2 uppercase tracking-wider">
-        {label} {required && <span className="text-kitsch-orange">*</span>}
-      </label>
+      <label className="label-mcm">{label}</label>
       {children}
     </div>
   )

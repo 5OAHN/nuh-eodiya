@@ -1,62 +1,61 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useStore } from '../../store/useStore'
 
-const COOLDOWN_MS = 30000
+const COOLDOWN_SEC = 30
 
 export default function NudgeButton({ targetMember }) {
-  const nudge = useStore(s => s.nudge)
-  const myNickname = useStore(s => s.myNickname)
-  const room = useStore(s => s.room)
+  const nudge       = useStore(s => s.nudge)
+  const myNickname  = useStore(s => s.myNickname)
+  const room        = useStore(s => s.room)
 
-  const [cooldownRemain, setCooldownRemain] = useState(0)
-  const [shaking, setShaking] = useState(false)
-  const [popped, setPopped] = useState(false)
+  const [cooldown, setCooldown]   = useState(0)
+  const [shaking, setShaking]     = useState(false)
+  const [feedback, setFeedback]   = useState(false) // 토스트 표시
+  const [pressed, setPressed]     = useState(false)  // 눌림 피드백
 
-  // 쿨다운 타이머
+  // 쿨다운 카운터
   useEffect(() => {
-    if (cooldownRemain <= 0) return
-    const id = setInterval(() => {
-      setCooldownRemain(prev => {
-        const next = prev - 1
-        return next <= 0 ? 0 : next
-      })
-    }, 1000)
+    if (cooldown <= 0) return
+    const id = setInterval(() => setCooldown(p => p <= 1 ? 0 : p - 1), 1000)
     return () => clearInterval(id)
-  }, [cooldownRemain > 0])
+  }, [cooldown > 0])
 
   const handleNudge = useCallback(async () => {
-    if (cooldownRemain > 0) return
+    if (cooldown > 0) return
 
     const result = nudge(targetMember.id)
-
     if (!result.ok) {
-      setCooldownRemain(result.remainSec)
+      setCooldown(result.remainSec)
       return
     }
 
-    // 화면 쉐이크 효과
+    // 눌림 → 흔들기 순서
+    setPressed(true)
+    setTimeout(() => setPressed(false), 150)
     setShaking(true)
     setTimeout(() => setShaking(false), 600)
 
-    // 팝 피드백
-    setPopped(true)
-    setTimeout(() => setPopped(false), 2000)
+    // 피드백 토스트
+    setFeedback(true)
+    setTimeout(() => setFeedback(false), 2000)
 
-    // 쿨다운 시작
-    setCooldownRemain(COOLDOWN_MS / 1000)
-
-    // 카카오톡 메시지 발송 시도
+    setCooldown(COOLDOWN_SEC)
     await sendKakaoNudge(myNickname || '누군가', targetMember.nickname, room)
-  }, [cooldownRemain, nudge, targetMember, myNickname, room])
+  }, [cooldown, nudge, targetMember, myNickname, room])
 
-  const isCooling = cooldownRemain > 0
+  const isCooling = cooldown > 0
+  // 쿨다운 진행률 (원형 SVG용)
+  const coolPct = isCooling ? ((COOLDOWN_SEC - cooldown) / COOLDOWN_SEC) : 0
 
   return (
     <div className="relative flex-shrink-0">
       {/* 피드백 토스트 */}
-      {popped && (
-        <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-kitsch-orange border-2 border-black px-3 py-1 text-black font-black text-xs whitespace-nowrap shadow-[3px_3px_0_#000] animate-bouncy z-10">
-          🚨 재촉 발사!
+      {feedback && (
+        <div className="absolute -top-9 left-1/2 -translate-x-1/2 z-10
+                        bg-mcm-mustard text-white text-xs font-bold
+                        px-3 py-1.5 rounded-pill shadow-mcm
+                        whitespace-nowrap animate-bouncy pointer-events-none">
+          👉 재촉 완료!
         </div>
       )}
 
@@ -64,18 +63,38 @@ export default function NudgeButton({ targetMember }) {
         onClick={handleNudge}
         disabled={isCooling}
         className={`
-          btn-kitsch text-xs font-black px-3 py-2 relative
+          relative overflow-hidden
+          flex items-center gap-1.5
+          text-xs font-bold px-3.5 py-2
+          rounded-pill transition-all duration-150
           ${isCooling
-            ? 'bg-gray-600 border-gray-500 text-gray-400 shadow-none cursor-not-allowed'
-            : 'bg-kitsch-pink text-white active:bg-kitsch-orange'
+            ? 'bg-mcm-warm text-mcm-stone cursor-not-allowed'
+            : 'bg-mcm-mustard text-white shadow-mcm hover:brightness-105 active:scale-95'
           }
           ${shaking ? 'animate-shake' : ''}
+          ${pressed ? 'scale-90' : ''}
         `}
       >
         {isCooling ? (
-          <span className="tabular-nums">{cooldownRemain}s</span>
+          <>
+            {/* 쿨다운 원형 인디케이터 */}
+            <svg width="14" height="14" className="flex-shrink-0 -rotate-90">
+              <circle cx="7" cy="7" r="5" fill="none" stroke="#C8C2B8" strokeWidth="2"/>
+              <circle
+                cx="7" cy="7" r="5" fill="none"
+                stroke="#C9982A" strokeWidth="2"
+                strokeDasharray={`${2 * Math.PI * 5}`}
+                strokeDashoffset={`${2 * Math.PI * 5 * (1 - coolPct)}`}
+                className="transition-all duration-1000"
+              />
+            </svg>
+            <span className="tabular-nums">{cooldown}s</span>
+          </>
         ) : (
-          '찌르기 👉'
+          <>
+            <span>👉</span>
+            <span>재촉하기</span>
+          </>
         )}
       </button>
     </div>
@@ -84,41 +103,24 @@ export default function NudgeButton({ targetMember }) {
 
 async function sendKakaoNudge(fromName, toName, room) {
   try {
-    // Kakao SDK 로드 보장
     const Kakao = await window.loadKakaoSDK()
-    if (!Kakao || !Kakao.isInitialized()) {
-      console.warn('[Kakao] SDK 미초기화 - 데모 모드')
-      return
-    }
+    if (!Kakao?.isInitialized()) return
 
-    const roomUrl = room
+    const url = room
       ? `${import.meta.env.VITE_APP_BASE_URL || window.location.origin}/room/${room.id}`
       : window.location.href
 
-    // 카카오 링크 API: Feed 템플릿
     Kakao.Share.sendDefault({
       objectType: 'feed',
       content: {
-        title: `🚨 ${fromName}님이 분노 게이지를 채우고 있습니다!`,
-        description: `${toName}님, 지금 어디야?? 빨리 나와!! 다들 기다리고 있잖아 😤`,
-        imageUrl: 'https://via.placeholder.com/800x400/FF4D00/000000?text=%EB%84%88+%EC%96%B4%EB%94%94%EC%95%BC',
-        link: {
-          mobileWebUrl: roomUrl,
-          webUrl: roomUrl,
-        },
+        title: `📍 ${fromName}님이 찾고 있어요!`,
+        description: `${toName}님, 지금 어디야?? 다들 기다리고 있어요 😤`,
+        imageUrl: 'https://via.placeholder.com/800x400/4A7C9E/ffffff?text=%EB%84%88+%EC%96%B4%EB%94%94%EC%95%BC',
+        link: { mobileWebUrl: url, webUrl: url },
       },
-      buttons: [
-        {
-          title: '위치 확인하러 가기 📍',
-          link: {
-            mobileWebUrl: roomUrl,
-            webUrl: roomUrl,
-          },
-        },
-      ],
+      buttons: [{ title: '위치 확인하기 📍', link: { mobileWebUrl: url, webUrl: url } }],
     })
-  } catch (e) {
-    // API 키 없는 데모 환경에서는 콘솔 로그로 대체
-    console.log(`[Nudge 데모] ${fromName} → ${toName}: 카카오톡 메시지 발송 시뮬레이션`)
+  } catch {
+    console.log(`[Nudge 데모] ${fromName} → ${toName}`)
   }
 }

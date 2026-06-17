@@ -7,58 +7,104 @@
     -webkit-tap-highlight-color: transparent;
     box-sizing: border-box;
   }
+
   body {
     font-family: 'Noto Sans KR', sans-serif;
-    background: #0A0A0A;
-    color: white;
+    background: #F5F0E8;
+    color: #2C2C2C;
     min-height: 100dvh;
     overscroll-behavior: none;
     -webkit-font-smoothing: antialiased;
   }
-  .font-display {
-    font-family: 'Black Han Sans', sans-serif;
+
+  input, button, select, textarea {
+    font-family: inherit;
   }
+}
+
+@layer components {
+  /* 카드 기본 */
+  .card-mcm {
+    @apply bg-white rounded-2xl shadow-mcm;
+  }
+  .card-mcm-sm {
+    @apply bg-white rounded-xl shadow-mcm-sm;
+  }
+
+  /* 버튼 베이스 */
+  .btn-mcm {
+    @apply rounded-pill font-bold transition-all duration-200
+           active:scale-95 cursor-pointer select-none;
+  }
+  .btn-mcm-primary {
+    @apply btn-mcm bg-mcm-blue text-white shadow-mcm
+           hover:shadow-mcm-colored hover:brightness-105;
+  }
+  .btn-mcm-mustard {
+    @apply btn-mcm bg-mcm-mustard text-white shadow-mcm
+           hover:brightness-105;
+  }
+  .btn-mcm-ghost {
+    @apply btn-mcm bg-mcm-warm text-mcm-charcoal
+           hover:bg-mcm-border;
+  }
+
+  /* 인풋 */
+  .input-mcm {
+    @apply w-full bg-mcm-warm rounded-xl px-4 py-3
+           text-mcm-charcoal font-medium text-base
+           border border-mcm-border
+           outline-none focus:border-mcm-blue
+           focus:ring-2 focus:ring-mcm-blue/20
+           transition-all duration-200;
+  }
+
+  /* 섹션 라벨 */
+  .label-mcm {
+    @apply text-mcm-stone text-xs font-bold uppercase tracking-widest mb-2 block;
+  }
+
+  /* 배지 */
+  .badge-arrived  { @apply bg-mcm-pistachio-light text-mcm-pistachio rounded-pill text-xs font-bold px-3 py-1; }
+  .badge-moving   { @apply bg-mcm-clay-light text-mcm-clay rounded-pill text-xs font-bold px-3 py-1; }
+  .badge-waiting  { @apply bg-mcm-blue-light text-mcm-blue rounded-pill text-xs font-bold px-3 py-1; }
 }
 
 @layer utilities {
-  .btn-kitsch {
-    @apply font-bold uppercase tracking-wider border-2 border-black
-           shadow-[4px_4px_0px_#000]
-           active:translate-x-1 active:translate-y-1 active:shadow-none
-           transition-all duration-100 cursor-pointer select-none;
-  }
-  .card-kitsch {
-    @apply border-2 border-black shadow-[4px_4px_0px_#000] bg-white text-black;
-  }
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-  .text-stroke-black {
-    -webkit-text-stroke: 2px black;
+
+  /* 지도 라이트 필터 */
+  .map-light {
+    filter: saturate(0.6) brightness(1.05);
   }
-  .map-grayscale {
-    filter: grayscale(85%) contrast(1.15) brightness(0.9);
+
+  /* 하단 safe area */
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 16px);
   }
-  /* 심장박동 카운트다운 */
+  .mb-safe {
+    margin-bottom: env(safe-area-inset-bottom, 16px);
+  }
+
   .heartbeat-critical {
     animation: heartbeat 0.6s ease-in-out infinite;
-    color: #FF4D00 !important;
+  }
+
+  /* 마커 펄스 */
+  .marker-pulse {
+    animation: marker-pulse 2.5s ease-in-out infinite;
   }
 }
 
-/* 룰렛 휠 커스텀 */
+/* 룰렛 회전 */
 @keyframes roulette-spin {
-  0% { transform: rotate(0deg); }
+  0%   { transform: rotate(0deg); }
   100% { transform: rotate(var(--spin-degrees, 1800deg)); }
-}
-.roulette-spinning {
-  animation: roulette-spin 4s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards;
 }
 
 /* 마커 펄스 */
 @keyframes marker-pulse {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(255,77,0,0.4); }
-  50% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(255,77,0,0); }
-}
-.marker-pulse {
-  animation: marker-pulse 2s ease-in-out infinite;
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74,124,158,0.35); }
+  50%       { box-shadow: 0 0 0 10px rgba(74,124,158,0); }
 }

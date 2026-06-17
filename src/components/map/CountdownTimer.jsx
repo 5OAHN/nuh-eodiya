@@ -4,16 +4,16 @@ function pad(n) { return String(n).padStart(2, '0') }
 
 export default function CountdownTimer({ meetingTime }) {
   const [remaining, setRemaining] = useState(0)
-  const [phase, setPhase] = useState('normal') // 'normal' | 'warning' | 'critical' | 'overtime'
+  const [phase, setPhase] = useState('normal')
 
   useEffect(() => {
     const calc = () => {
       const diff = meetingTime - Date.now()
       setRemaining(diff)
-      if (diff > 5 * 60 * 1000) setPhase('normal')
-      else if (diff > 60 * 1000) setPhase('warning')
-      else if (diff > 0) setPhase('critical')
-      else setPhase('overtime')
+      if (diff > 5 * 60 * 1000)      setPhase('normal')
+      else if (diff > 60 * 1000)     setPhase('warning')
+      else if (diff > 0)             setPhase('critical')
+      else                           setPhase('overtime')
     }
     calc()
     const id = setInterval(calc, 500)
@@ -21,62 +21,53 @@ export default function CountdownTimer({ meetingTime }) {
   }, [meetingTime])
 
   const isOvertime = remaining <= 0
-  const absMs = Math.abs(remaining)
-  const totalSec = Math.floor(absMs / 1000)
-  const mins = Math.floor(totalSec / 60)
-  const secs = totalSec % 60
+  const totalSec   = Math.floor(Math.abs(remaining) / 1000)
+  const mins       = Math.floor(totalSec / 60)
+  const secs       = totalSec % 60
 
+  // 페이즈별 스타일 (라이트 톤)
   const phaseConfig = {
-    normal:   { bg: 'bg-kitsch-blue',   text: 'text-white',        label: '약속까지', pulse: false },
-    warning:  { bg: 'bg-kitsch-yellow', text: 'text-black',        label: '⚠️ 서둘러!', pulse: false },
-    critical: { bg: 'bg-kitsch-orange', text: 'text-black',        label: '🚨 지금 당장!', pulse: true },
-    overtime: { bg: 'bg-red-600',       text: 'text-white',        label: '💀 지각 확정', pulse: true },
+    normal:   { bg: 'bg-white',              numColor: 'text-mcm-charcoal', label: '약속까지', labelColor: 'text-mcm-stone',      bar: 'bg-mcm-pistachio' },
+    warning:  { bg: 'bg-mcm-mustard-light',  numColor: 'text-mcm-mustard',  label: '⚠️ 서둘러!', labelColor: 'text-mcm-mustard',   bar: 'bg-mcm-mustard' },
+    critical: { bg: 'bg-mcm-clay-light',     numColor: 'text-mcm-clay',     label: '🚨 지금 당장!', labelColor: 'text-mcm-clay',  bar: 'bg-mcm-clay' },
+    overtime: { bg: 'bg-red-50',             numColor: 'text-red-500',       label: '💀 지각 확정', labelColor: 'text-red-400',   bar: 'bg-red-400' },
   }
   const cfg = phaseConfig[phase]
 
+  // 전체 30분 기준 프로그레스
+  const total30 = 30 * 60 * 1000
+  const pct = Math.max(0, Math.min(100, (remaining / total30) * 100))
+
   return (
-    <div className={`${cfg.bg} border-b-4 border-black w-full transition-colors duration-1000`}>
-      <div className={`px-4 py-3 ${cfg.pulse ? 'animate-heartbeat' : ''}`}>
-        <p className={`text-center text-xs font-black uppercase tracking-widest ${cfg.text} opacity-70 mb-1`}>
+    <div className={`${cfg.bg} transition-colors duration-700`}>
+      <div className={`px-5 pt-4 pb-3 ${phase === 'critical' || phase === 'overtime' ? 'heartbeat-critical' : ''}`}>
+        {/* 라벨 */}
+        <p className={`text-center text-xs font-bold uppercase tracking-widest ${cfg.labelColor} mb-1`}>
           {cfg.label}
         </p>
-        <div className="flex items-baseline justify-center gap-1">
+
+        {/* 숫자 */}
+        <div className="flex items-baseline justify-center gap-0.5">
           {isOvertime && (
-            <span className={`font-display text-3xl font-black ${cfg.text}`}>+</span>
+            <span className={`font-display text-2xl ${cfg.numColor} mr-0.5`}>+</span>
           )}
-          <span className={`font-display text-6xl font-black leading-none ${cfg.text} tabular-nums`}>
+          <span className={`font-display text-6xl font-black leading-none tabular-nums ${cfg.numColor} transition-colors duration-500`}>
             {pad(mins)}
           </span>
-          <span className={`font-display text-4xl font-black ${cfg.text} ${phase === 'critical' || phase === 'overtime' ? 'animate-pulse' : ''}`}>:</span>
-          <span className={`font-display text-6xl font-black leading-none ${cfg.text} tabular-nums`}>
+          <span className={`font-display text-4xl font-black ${cfg.numColor} mx-1 ${phase === 'critical' || phase === 'overtime' ? 'animate-pulse' : ''}`}>:</span>
+          <span className={`font-display text-6xl font-black leading-none tabular-nums ${cfg.numColor} transition-colors duration-500`}>
             {pad(secs)}
           </span>
         </div>
-        {/* 프로그레스바 */}
-        <TimerProgress meetingTime={meetingTime} remaining={remaining} phase={phase} />
+
+        {/* 프로그레스 바 */}
+        <div className="mt-3 h-1.5 bg-mcm-border rounded-full overflow-hidden">
+          <div
+            className={`h-full ${cfg.bar} rounded-full transition-all duration-500`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
       </div>
-    </div>
-  )
-}
-
-function TimerProgress({ meetingTime, remaining, phase }) {
-  // 시작 30분 전 기준
-  const total = 30 * 60 * 1000
-  const pct = Math.max(0, Math.min(100, (remaining / total) * 100))
-
-  const barColor = {
-    normal: 'bg-kitsch-green',
-    warning: 'bg-kitsch-orange',
-    critical: 'bg-red-400',
-    overtime: 'bg-red-600',
-  }[phase]
-
-  return (
-    <div className="mt-2 h-2 bg-black/20 w-full overflow-hidden">
-      <div
-        className={`h-full ${barColor} transition-all duration-500`}
-        style={{ width: `${pct}%` }}
-      />
     </div>
   )
 }
