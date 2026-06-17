@@ -10,7 +10,7 @@
 
   body {
     font-family: 'Noto Sans KR', sans-serif;
-    background: #F5F0E8;
+    background: #F8F9FA;
     color: #2C2C2C;
     min-height: 100dvh;
     overscroll-behavior: none;
@@ -23,12 +23,12 @@
 }
 
 @layer components {
-  /* 카드 기본 */
+  /* 카드 — 흰 배경 위에서 float 느낌 */
   .card-mcm {
-    @apply bg-white rounded-2xl shadow-mcm;
+    @apply bg-white rounded-2xl border border-neutral-200 shadow-lg;
   }
   .card-mcm-sm {
-    @apply bg-white rounded-xl shadow-mcm-sm;
+    @apply bg-white rounded-xl border border-neutral-200 shadow-md;
   }
 
   /* 버튼 베이스 */
@@ -37,23 +37,23 @@
            active:scale-95 cursor-pointer select-none;
   }
   .btn-mcm-primary {
-    @apply btn-mcm bg-mcm-blue text-white shadow-mcm
+    @apply btn-mcm bg-mcm-blue text-white shadow-md
            hover:shadow-mcm-colored hover:brightness-105;
   }
   .btn-mcm-mustard {
-    @apply btn-mcm bg-mcm-mustard text-white shadow-mcm
+    @apply btn-mcm bg-mcm-mustard text-white shadow-md
            hover:brightness-105;
   }
   .btn-mcm-ghost {
-    @apply btn-mcm bg-mcm-warm text-mcm-charcoal
-           hover:bg-mcm-border;
+    @apply btn-mcm bg-gray-100 text-mcm-charcoal border border-neutral-200
+           hover:bg-gray-200;
   }
 
   /* 인풋 */
   .input-mcm {
-    @apply w-full bg-mcm-warm rounded-xl px-4 py-3
+    @apply w-full bg-gray-50 rounded-xl px-4 py-3
            text-mcm-charcoal font-medium text-base
-           border border-mcm-border
+           border border-neutral-200
            outline-none focus:border-mcm-blue
            focus:ring-2 focus:ring-mcm-blue/20
            transition-all duration-200;
@@ -65,45 +65,24 @@
   }
 
   /* 배지 */
-  .badge-arrived  { @apply bg-mcm-pistachio-light text-mcm-pistachio rounded-pill text-xs font-bold px-3 py-1; }
-  .badge-moving   { @apply bg-mcm-clay-light text-mcm-clay rounded-pill text-xs font-bold px-3 py-1; }
-  .badge-waiting  { @apply bg-mcm-blue-light text-mcm-blue rounded-pill text-xs font-bold px-3 py-1; }
+  .badge-arrived { @apply bg-mcm-pistachio-light text-mcm-pistachio rounded-pill text-xs font-bold px-3 py-1; }
+  .badge-moving  { @apply bg-mcm-clay-light text-mcm-clay rounded-pill text-xs font-bold px-3 py-1; }
+  .badge-waiting { @apply bg-mcm-blue-light text-mcm-blue rounded-pill text-xs font-bold px-3 py-1; }
 }
 
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar { display: none; }
   .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-  /* 지도 라이트 필터 */
-  .map-light {
-    filter: saturate(0.6) brightness(1.05);
-  }
+  .map-light { filter: saturate(0.6) brightness(1.05); }
 
-  /* 하단 safe area */
-  .pb-safe {
-    padding-bottom: env(safe-area-inset-bottom, 16px);
-  }
-  .mb-safe {
-    margin-bottom: env(safe-area-inset-bottom, 16px);
-  }
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 16px); }
+  .mb-safe { margin-bottom: env(safe-area-inset-bottom, 16px); }
 
-  .heartbeat-critical {
-    animation: heartbeat 0.6s ease-in-out infinite;
-  }
-
-  /* 마커 펄스 */
-  .marker-pulse {
-    animation: marker-pulse 2.5s ease-in-out infinite;
-  }
+  .heartbeat-critical { animation: heartbeat 0.6s ease-in-out infinite; }
+  .marker-pulse       { animation: marker-pulse 2.5s ease-in-out infinite; }
 }
 
-/* 룰렛 회전 */
-@keyframes roulette-spin {
-  0%   { transform: rotate(0deg); }
-  100% { transform: rotate(var(--spin-degrees, 1800deg)); }
-}
-
-/* 마커 펄스 */
 @keyframes marker-pulse {
   0%, 100% { box-shadow: 0 0 0 0 rgba(74,124,158,0.35); }
   50%       { box-shadow: 0 0 0 10px rgba(74,124,158,0); }

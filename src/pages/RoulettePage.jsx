@@ -17,7 +17,7 @@ export default function RoulettePage() {
   }, [])
 
   return (
-    <div className="min-h-dvh bg-mcm-cream flex flex-col">
+    <div className="min-h-dvh bg-gray-50 flex flex-col">
       {/* 헤더 */}
       <div className="flex-shrink-0 bg-white border-b border-mcm-border px-4 py-4 flex items-center gap-3">
         <button

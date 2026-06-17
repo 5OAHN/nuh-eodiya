@@ -66,7 +66,7 @@ export default function RouletteWheel() {
   return (
     <div className="flex flex-col items-center gap-5 px-4 pb-6">
       {/* 지각자 배너 */}
-      <div className="card-mcm w-full p-4 animate-pop-in">
+      <div className="card-mcm w-full p-5 animate-pop-in">
         <p className="text-center text-mcm-stone text-xs font-bold uppercase tracking-widest mb-2">지각자 처벌 룰렛</p>
         <div className="flex flex-wrap gap-2 justify-center">
           {targets.map(t => (

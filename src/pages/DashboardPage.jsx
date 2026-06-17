@@ -1,21 +1,22 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useStore } from '../store/useStore'
+import { useRealtime } from '../hooks/useRealtime'
 import CountdownTimer from '../components/map/CountdownTimer'
 import KakaoMap from '../components/map/KakaoMap'
 import MemberStatusList from '../components/map/MemberStatusList'
 
 export default function DashboardPage() {
-  const { roomId }    = useParams()
-  const navigate      = useNavigate()
+  const { roomId } = useParams()
+  const navigate   = useNavigate()
   const { room, members, myId, isHost, phase, startRoulette, loadDemoRoom } = useStore(s => ({
     room: s.room, members: s.members, myId: s.myId,
     isHost: s.isHost, phase: s.phase,
     startRoulette: s.startRoulette, loadDemoRoom: s.loadDemoRoom,
   }))
-
   const [shareToast, setShareToast] = useState(false)
 
+  useRealtime(roomId)
   useEffect(() => { if (!room) loadDemoRoom() }, [])
   useEffect(() => {
     if (phase === 'roulette' || phase === 'done') navigate(`/roulette/${roomId}`)
@@ -53,7 +54,7 @@ export default function DashboardPage() {
   const waitingCount = members.filter(m => m.status === 'waiting').length
 
   if (!room) return (
-    <div className="min-h-dvh bg-mcm-cream flex items-center justify-center">
+    <div className="min-h-dvh bg-gray-50 flex items-center justify-center">
       <div className="text-center">
         <div className="text-5xl mb-4 animate-float">📍</div>
         <p className="text-mcm-stone font-medium">위치 연결 중...</p>
@@ -62,28 +63,19 @@ export default function DashboardPage() {
   )
 
   return (
-    /*
-      전체 레이아웃: dvh 고정, flex-col
-      ① 카운트다운 (고정 높이)
-      ② 방 정보 바 (고정 높이)
-      ③ 지도 (flex-1 → 남은 공간 가득)
-      ④ 멤버 리스트 (고정 최대 높이, 스크롤)
-      ⑤ 하단 액션 바 (고정, safe-area 처리)
-    */
-    <div className="h-dvh flex flex-col bg-mcm-cream overflow-hidden">
+    <div className="h-dvh flex flex-col bg-gray-50 overflow-hidden">
 
       {/* ① 카운트다운 */}
-      <div className="flex-shrink-0 shadow-mcm-sm z-10">
+      <div className="flex-shrink-0 z-10 shadow-sm">
         <CountdownTimer meetingTime={room.meetingTime} />
       </div>
 
       {/* ② 방 정보 바 */}
-      <div className="flex-shrink-0 bg-white border-b border-mcm-border px-4 py-2.5 flex items-center justify-between">
+      <div className="flex-shrink-0 bg-white border-b border-neutral-200 px-4 py-2.5 flex items-center justify-between">
         <div className="min-w-0">
           <p className="font-bold text-mcm-charcoal text-sm leading-tight truncate">{room.title}</p>
           <p className="text-mcm-stone text-xs mt-0.5 truncate">📍 {room.destination?.name}</p>
         </div>
-        {/* 미니 상태 뱃지 */}
         <div className="flex gap-1.5 flex-shrink-0 ml-3">
           <span className="badge-arrived">✅ {arrivedCount}</span>
           <span className="badge-moving">🏃 {movingCount}</span>
@@ -91,7 +83,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* ③ 지도 (flex-1) */}
+      {/* ③ 지도 */}
       <div className="flex-1 relative min-h-0">
         <KakaoMap members={members} destination={room.destination} />
 
@@ -99,18 +91,20 @@ export default function DashboardPage() {
         <button
           onClick={handleShare}
           className="absolute bottom-3 right-3 z-10
-                     bg-white shadow-mcm rounded-pill
+                     bg-white border border-neutral-200 shadow-lg rounded-pill
                      px-4 py-2 text-sm font-bold text-mcm-charcoal
                      flex items-center gap-1.5
-                     hover:shadow-mcm-lg active:scale-95 transition-all duration-150"
+                     hover:shadow-xl active:scale-95 transition-all duration-150"
         >
           🔗 공유
         </button>
 
-        {/* 링크 복사 토스트 */}
+        {/* GPS 상태 */}
+        <GpsIndicator members={members} myId={myId} />
+
         {shareToast && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20
-                          bg-white shadow-mcm rounded-pill
+                          bg-white border border-neutral-200 shadow-lg rounded-pill
                           px-4 py-2 text-sm font-bold text-mcm-pistachio
                           animate-bouncy whitespace-nowrap">
             📋 링크 복사됨!
@@ -118,20 +112,20 @@ export default function DashboardPage() {
         )}
       </div>
 
-      {/* ④ 멤버 리스트 (최대 40% 높이, 스크롤) */}
-      <div className="flex-shrink-0 max-h-[40vh] overflow-y-auto no-scrollbar shadow-[0_-4px_16px_rgba(0,0,0,0.06)]">
+      {/* ④ 멤버 리스트 */}
+      <div className="flex-shrink-0 max-h-[40vh] overflow-y-auto no-scrollbar shadow-[0_-4px_20px_rgba(0,0,0,0.06)] bg-white">
         <MemberStatusList members={members} />
       </div>
 
-      {/* ⑤ 하단 액션 바 (방장 전용 룰렛 버튼 포함) */}
+      {/* ⑤ 하단 액션 바 */}
       <div
-        className="flex-shrink-0 bg-white border-t border-mcm-border px-4 pt-3"
+        className="flex-shrink-0 bg-white border-t border-neutral-200 px-4 pt-3"
         style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}
       >
         {isHost ? (
           <button
             onClick={() => startRoulette()}
-            className="btn-mcm bg-mcm-clay text-white font-bold py-3.5 w-full text-base shadow-mcm
+            className="btn-mcm bg-mcm-clay text-white font-bold py-3.5 w-full text-base shadow-md
                        hover:brightness-105 active:scale-95 transition-all duration-200 rounded-pill"
           >
             🎰  지각자 룰렛 시작하기
@@ -142,6 +136,17 @@ export default function DashboardPage() {
           </p>
         )}
       </div>
+    </div>
+  )
+}
+
+function GpsIndicator({ members, myId }) {
+  const me = members.find(m => m.id === myId)
+  if (!me?.lat) return null
+  return (
+    <div className="absolute top-3 left-3 z-10 bg-white/90 backdrop-blur-sm border border-neutral-200 shadow-md rounded-pill px-3 py-1.5 flex items-center gap-1.5">
+      <div className="w-2 h-2 rounded-full bg-mcm-pistachio animate-pulse" />
+      <span className="text-mcm-charcoal text-xs font-medium">위치 공유 중</span>
     </div>
   )
 }

@@ -1,126 +1,131 @@
 import { create } from 'zustand'
 import { nanoid } from 'nanoid'
 
-// 상태: 'arriving' | 'moving' | 'waiting' | 'arrived'
+const MCM_COLORS = ['#4A7C9E','#C9982A','#6B9E6E','#C27B5A','#7B7EC9','#9E6B6B','#6B9E9C']
+
+// 데모용 목데이터
 const MOCK_ROOM = {
   id: 'demo-room-001',
   title: '강남역 점심 🍜',
   destination: { name: '강남역 12번 출구', lat: 37.4979, lng: 127.0276 },
-  meetingTime: Date.now() + 12 * 60 * 1000, // 12분 후
-  penalties: ['아메리카노 쏘기 ☕', '밥 사기 🍚', '노래방 탬버린 담당 🎵', '다음 약속 장소 결정 📍', '사진 찍힘 📸'],
+  meetingTime: Date.now() + 12 * 60 * 1000,
+  penalties: ['아메리카노 쏘기 ☕','밥 사기 🍚','노래방 탬버린 담당 🎵','다음 약속 장소 결정 📍','사진 찍힘 📸'],
   hostId: 'user-001',
 }
-
 const MOCK_MEMBERS = [
-  { id: 'user-001', nickname: '불꽃감자', emoji: '🔥', color: '#FF4D00', lat: 37.501, lng: 127.031, status: 'moving', eta: 8, isHost: true },
-  { id: 'user-002', nickname: '지각왕민수', emoji: '🐌', color: '#0047FF', lat: 37.508, lng: 127.025, status: 'waiting', eta: 18, isHost: false },
-  { id: 'user-003', nickname: '총알기차', emoji: '⚡', color: '#00FF88', lat: 37.499, lng: 127.028, status: 'arrived', eta: 0, isHost: false },
-  { id: 'user-004', nickname: '미지의인물', emoji: '👻', color: '#FF0080', lat: 37.512, lng: 127.034, status: 'moving', eta: 22, isHost: false },
+  { id:'user-001', nickname:'불꽃감자',  emoji:'🔥', color:'#4A7C9E', lat:37.501, lng:127.031, status:'moving',  eta:8,  isHost:true  },
+  { id:'user-002', nickname:'지각왕민수',emoji:'🐌', color:'#C9982A', lat:37.508, lng:127.025, status:'waiting', eta:18, isHost:false },
+  { id:'user-003', nickname:'총알기차',  emoji:'⚡', color:'#6B9E6E', lat:37.499, lng:127.028, status:'arrived', eta:0,  isHost:false },
+  { id:'user-004', nickname:'미지의인물',emoji:'👻', color:'#C27B5A', lat:37.512, lng:127.034, status:'moving',  eta:22, isHost:false },
 ]
 
 export const useStore = create((set, get) => ({
-  // 방 정보
   room: null,
   members: [],
-  myId: 'user-001',
+  myId: null,
   myNickname: '',
   myEmoji: '🙂',
   isHost: false,
-  phase: 'lobby', // 'lobby' | 'live' | 'roulette' | 'done'
-
-  // 재촉하기 쿨타임 맵 { userId: timestamp }
+  phase: 'lobby',
   nudgeCooldowns: {},
-
-  // 룰렛 결과
   rouletteResult: null,
   rouletteTargets: [],
 
-  // 데모 방 진입
+  // ── 데모 모드 ──
   loadDemoRoom: () => {
     set({
-      room: MOCK_ROOM,
-      members: MOCK_MEMBERS,
-      myId: 'user-001',
-      myNickname: '불꽃감자',
-      isHost: true,
-      phase: 'live',
+      room: MOCK_ROOM, members: MOCK_MEMBERS,
+      myId: 'user-001', myNickname: '불꽃감자',
+      isHost: true, phase: 'live',
     })
-
-    // 위치 시뮬레이션 (데모용)
-    setInterval(() => {
+    // 위치 시뮬레이션
+    const id = setInterval(() => {
       set(state => ({
         members: state.members.map(m => {
-          if (m.status === 'arrived') return m
-          if (m.status === 'waiting') return m
-          const deltaLat = (Math.random() - 0.5) * 0.0005
-          const deltaLng = (Math.random() - 0.5) * 0.0005
-          const newEta = Math.max(0, m.eta - (Math.random() * 0.3))
-          const newStatus = newEta <= 1 ? 'arrived' : m.status
-          return { ...m, lat: m.lat + deltaLat, lng: m.lng + deltaLng, eta: newEta, status: newStatus }
+          if (m.status === 'arrived' || m.status === 'waiting') return m
+          const newEta = Math.max(0, m.eta - Math.random() * 0.4)
+          return {
+            ...m,
+            lat: m.lat + (Math.random()-0.5)*0.0005,
+            lng: m.lng + (Math.random()-0.5)*0.0005,
+            eta: newEta,
+            status: newEta <= 1 ? 'arrived' : 'moving',
+          }
         })
       }))
     }, 3000)
+    // 컴포넌트 언마운트 시 정리는 페이지에서
+    get()._demoIntervalId = id
   },
 
-  // 방 생성
-  createRoom: (data) => {
-    const roomId = nanoid(8)
-    const room = { id: roomId, ...data, hostId: get().myId }
-    set({ room, phase: 'live' })
-    return roomId
+  // ── 방 생성 (Supabase 연동 후 roomService에서 호출) ──
+  initRoom: (room, member, isHost) => {
+    set({
+      room,
+      myId: member.id,
+      myNickname: member.nickname,
+      myEmoji: member.emoji,
+      isHost,
+      phase: 'live',
+      members: [member],
+    })
   },
 
-  // 내 위치 업데이트
-  updateMyLocation: (lat, lng) => {
-    const myId = get().myId
+  // ── 멤버 추가/업데이트 (Supabase 실시간) ──
+  updateMembersFromDB: (updatedMembers) => {
+    set(state => {
+      const map = new Map(state.members.map(m => [m.id, m]))
+      updatedMembers.forEach(m => map.set(m.id, { ...map.get(m.id), ...m }))
+      return { members: Array.from(map.values()) }
+    })
+  },
+
+  // ── 내 위치 로컬 업데이트 ──
+  setMemberLocation: (id, lat, lng, eta, status) => {
     set(state => ({
       members: state.members.map(m =>
-        m.id === myId ? { ...m, lat, lng } : m
+        m.id === id ? { ...m, lat, lng, eta, status } : m
       )
     }))
   },
 
-  // 재촉하기
-  nudge: (targetId) => {
-    const now = Date.now()
-    const cooldowns = get().nudgeCooldowns
-    const last = cooldowns[targetId] || 0
+  // ── 로컬 방 생성 (Supabase 없을 때) ──
+  createRoom: (data) => {
+    const roomId   = nanoid(8)
+    const memberId = get().myId || `m-${nanoid(6)}`
+    const room     = { id: roomId, ...data, hostId: memberId, phase: 'live' }
+    set({ room, phase: 'live' })
+    return roomId
+  },
 
-    if (now - last < 30000) {
-      return { ok: false, remainSec: Math.ceil((30000 - (now - last)) / 1000) }
-    }
+  // ── 프로필 설정 ──
+  setProfile: (nickname, emoji) => {
+    const myId  = `m-${nanoid(6)}`
+    const color = MCM_COLORS[Math.floor(Math.random() * MCM_COLORS.length)]
     set(state => ({
-      nudgeCooldowns: { ...state.nudgeCooldowns, [targetId]: now }
+      myId, myNickname: nickname, myEmoji: emoji,
+      members: [...state.members, {
+        id: myId, nickname, emoji, color,
+        lat: null, lng: null, status: 'waiting', eta: null, isHost: false,
+      }]
     }))
+  },
+
+  // ── 재촉하기 ──
+  nudge: (targetId) => {
+    const now  = Date.now()
+    const last = get().nudgeCooldowns[targetId] || 0
+    if (now - last < 30000) return { ok: false, remainSec: Math.ceil((30000-(now-last))/1000) }
+    set(s => ({ nudgeCooldowns: { ...s.nudgeCooldowns, [targetId]: now } }))
     return { ok: true }
   },
 
-  // 룰렛 시작
+  // ── 룰렛 ──
   startRoulette: () => {
-    const { members, room } = get()
-    const latecomers = members.filter(m => m.status !== 'arrived')
-    set({
-      phase: 'roulette',
-      rouletteTargets: latecomers.length > 0 ? latecomers : members,
-    })
+    const latecomers = get().members.filter(m => m.status !== 'arrived')
+    set({ phase: 'roulette', rouletteTargets: latecomers.length > 0 ? latecomers : get().members })
   },
-
-  // 룰렛 결과 설정
   setRouletteResult: (member, penalty) => {
     set({ rouletteResult: { member, penalty }, phase: 'done' })
-  },
-
-  // 닉네임/이모지 설정
-  setProfile: (nickname, emoji) => {
-    const myId = `user-${nanoid(6)}`
-    set(state => ({
-      myId,
-      myNickname: nickname,
-      myEmoji: emoji,
-      members: [...state.members, {
-        id: myId, nickname, emoji, color: '#FFE600',
-        lat: null, lng: null, status: 'waiting', eta: null, isHost: false
-      }]
-    }))
   },
 }))

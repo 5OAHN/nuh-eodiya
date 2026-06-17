@@ -10,12 +10,13 @@
     "lint": "eslint . --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.108.2",
+    "canvas-confetti": "^1.9.2",
+    "nanoid": "^5.0.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-router-dom": "^6.22.0",
-    "zustand": "^4.5.0",
-    "nanoid": "^5.0.4",
-    "canvas-confetti": "^1.9.2"
+    "zustand": "^4.5.0"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",
